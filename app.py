@@ -16,6 +16,7 @@ import requests
 import httpx
 import re
 import random
+from webrtc_audio import create_webrtc_audio_recorder
 
 # Load environment variables
 load_dotenv()
@@ -672,47 +673,46 @@ with col1:
                 st.write(f"*{msg['content']}*")
 
 with col2:
-    # Voice recording controls
-    if not st.session_state.recording:
-        if st.button("🎤 Start Recording"):
-            st.session_state.recording = True
-            if record_audio():
-                st.info("Recording... Press 'Stop' when done.")
-                st.rerun()
-    else:
-        if st.button("⏹️ Stop Recording"):
-            st.session_state.recording = False
-            if stop_recording():
-                audio_file = save_audio_to_file()
-                if audio_file:
-                    with st.spinner("Transcribing..."):
-                        transcription = transcribe_audio(audio_file)
-                        if transcription:
-                            st.success("Transcription complete!")
-                            
-                            # Process the transcription with GPT
-                            with st.spinner("Processing your request..."):
-                                response = process_with_gpt(transcription)
-                            
-                            # Speak the response in a background thread
-                            threading.Thread(
-                                target=speak_text, 
-                                args=(
-                                    response, 
-                                    st.session_state.use_female_voice, 
-                                    st.session_state.voice_rate, 
-                                    st.session_state.voice_volume
-                                ), 
-                                daemon=True
-                            ).start()
-                            
-                            # Don't rerun immediately to avoid interrupting the TTS
-                            time.sleep(0.5)
-                            st.rerun()
-                        else:
-                            st.error("Failed to transcribe audio.")
-                else:
-                    st.error("Failed to save audio.")
+    # WEBRTC IMPLEMENTATION - replaces the old recording UI
+    st.subheader("Voice Recording")
+    with st.expander("Expand for Voice Controls", expanded=True):
+        # Use WebRTC for audio recording
+        audio_file_ready = create_webrtc_audio_recorder()
+        
+        # When the audio file is ready, process it
+        if audio_file_ready:
+            audio_file = st.session_state.audio_file_path
+            if audio_file:
+                with st.spinner("Transcribing..."):
+                    transcription = transcribe_audio(audio_file)
+                    if transcription:
+                        st.success("Transcription complete!")
+                        
+                        # Process the transcription with GPT
+                        with st.spinner("Processing your request..."):
+                            response = process_with_gpt(transcription)
+                        
+                        # Speak the response in a background thread
+                        threading.Thread(
+                            target=speak_text, 
+                            args=(
+                                response, 
+                                st.session_state.use_female_voice, 
+                                st.session_state.voice_rate, 
+                                st.session_state.voice_volume
+                            ), 
+                            daemon=True
+                        ).start()
+                        
+                        # Clear the audio file path to prevent reprocessing
+                        st.session_state.audio_file_path = None
+                        # Don't rerun immediately to avoid interrupting the TTS
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error("Failed to transcribe audio.")
+            else:
+                st.error("Failed to save audio.")
 
     # Display calendar events if there are any
     if st.session_state.calendar_events:
