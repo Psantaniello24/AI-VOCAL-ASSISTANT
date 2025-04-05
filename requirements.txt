@@ -12,7 +12,4 @@ fastapi==0.103.1
 uvicorn==0.23.2
 pydantic==2.4.2
 httpx==0.28.0
-pypiwin32; platform_system=="Windows"
-streamlit-webrtc==0.47.1
-av
-aiortc 
+pypiwin32; platform_system=="Windows" 
