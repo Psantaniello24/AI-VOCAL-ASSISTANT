@@ -2,6 +2,11 @@
 
 A powerful voice-controlled personal assistant built with Python that can process spoken commands, schedule events, draft emails, perform web searches, and more. Easily connects with Google Mail and integrates with various social media platforms.
 
+## Video example : 
+
+![Demo GIF](./assistant_demo.gif)
+
+
 ## Features
 
 - **Voice Recognition**: Records audio using sounddevice and transcribes with OpenAI's Whisper API
@@ -108,9 +113,6 @@ Common issues and solutions:
 3. **Background noise**:
    - Use the assistant in a quiet environment for better voice recognition.
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
