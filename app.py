@@ -62,31 +62,16 @@ SAMPLE_RATE = 16000
 MAX_DURATION = 30  # Maximum recording duration in seconds
 
 # Configure page
+st.set_page_config(page_title="Voice Assistant", page_icon="🎤")
 st.title("Voice Assistant")
-
-# Check if running on Streamlit Cloud
-is_cloud = os.environ.get('IS_STREAMLIT_CLOUD') or 'STREAMLIT_SHARING_MODE' in os.environ
-if is_cloud:
-    st.info("🔊 Voice recording is not available in the cloud deployment. Please use the text input below to interact with the assistant. All other features work normally!")
-    st.markdown("---")
 
 # Function to record audio
 def record_audio():
     try:
-        # Check if running on Streamlit Cloud
-        is_cloud = os.environ.get('IS_STREAMLIT_CLOUD') or 'STREAMLIT_SHARING_MODE' in os.environ
-        
-        # If on cloud, provide a helpful message
-        if is_cloud:
-            st.warning("⚠️ Audio recording is not available on Streamlit Cloud. Please use the text input below for your commands.")
-            st.session_state.recording = False  # Reset recording state
-            return False
-            
         # Check if the audio device is available
         devices = sd.query_devices()
         if len(devices) == 0:
-            st.error("No audio devices found. Please check your microphone. You can use the text input below instead.")
-            st.session_state.recording = False  # Reset recording state
+            st.error("No audio devices found. Please check your microphone.")
             return False
             
         # Clear any previous audio data
@@ -103,8 +88,6 @@ def record_audio():
         return True
     except Exception as e:
         st.error(f"Error recording audio: {str(e)}")
-        st.warning("Please use the text input below instead of voice recording.")
-        st.session_state.recording = False  # Reset recording state
         return False
 
 # Function to stop recording
@@ -177,12 +160,6 @@ def transcribe_audio(audio_file_path):
 
 # Function to speak text using TTS
 def speak_text(text, use_female_voice=True, voice_rate=0.75, voice_volume=0.9):
-    # Check if running on Streamlit Cloud - skip voice in cloud environments
-    is_cloud = os.environ.get('IS_STREAMLIT_CLOUD') or 'STREAMLIT_SHARING_MODE' in os.environ
-    if is_cloud:
-        print("Running in cloud environment - skipping text-to-speech")
-        return
-        
     try:
         print(f"Attempting to speak: {text[:30]}...")
         success = False
@@ -680,10 +657,9 @@ def process_with_gpt(user_input):
         return f"I encountered an issue processing your request. {error_message}"
 
 # UI Components
-# Check if running on cloud to adjust layout
-is_cloud = os.environ.get('IS_STREAMLIT_CLOUD') or 'STREAMLIT_SHARING_MODE' in os.environ
-if is_cloud:
-    # For cloud deployment, focus on the conversation and text input
+col1, col2 = st.columns([4, 1])  # Change ratio to give more space to the conversation
+
+with col1:
     # Display conversation history
     for msg in st.session_state.messages:
         if msg["role"] == "user":
@@ -694,148 +670,94 @@ if is_cloud:
             # Display function results in a more subtle way
             with st.chat_message("system"):
                 st.write(f"*{msg['content']}*")
-                
-    # Display events and emails in expanders to save space
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.session_state.calendar_events:
-            with st.expander(f"📅 Calendar Events ({len(st.session_state.calendar_events)})"):
-                for event in st.session_state.calendar_events:
-                    start_time = datetime.fromisoformat(event["start_time"])
-                    
-                    st.markdown(f"**{event['title']}** - {start_time.strftime('%Y-%m-%d %H:%M')}")
-                    st.write(f"Duration: {event['duration_minutes']} min")
-                    
-                    if event.get('location'):
-                        st.write(f"Location: {event['location']}")
-                    
-                    if event.get('meeting_link'):
-                        st.markdown(f"[Join Meeting]({event['meeting_link']})")
-                    
-                    st.divider()
-    
-    with col2:
-        if st.session_state.draft_emails:
-            with st.expander(f"✉️ Email Drafts ({len(st.session_state.draft_emails)})"):
-                for email in st.session_state.draft_emails:
-                    st.markdown(f"**To:** {email['to']}")
-                    st.markdown(f"**Subject:** {email['subject']}")
-                    
-                    with st.expander("View Email Content"):
-                        st.text_area("", email['body'], height=100, disabled=True)
-                        
-                        # Add a copy button for the email content
-                        if st.button("Copy", key=f"copy_{email['id']}"):
-                            full_email = f"To: {email['to']}\nSubject: {email['subject']}\n\n{email['body']}"
-                            st.code(full_email)
-                    
-                    st.divider()
-else:
-    # Original UI layout for local deployment
-    col1, col2 = st.columns([4, 1])  # Change ratio to give more space to the conversation
 
-    with col1:
-        # Display conversation history
-        for msg in st.session_state.messages:
-            if msg["role"] == "user":
-                st.chat_message("user").write(msg["content"])
-            elif msg["role"] == "assistant" and msg.get("content"):
-                st.chat_message("assistant").write(msg["content"])
-            elif msg["role"] == "tool":
-                # Display function results in a more subtle way
-                with st.chat_message("system"):
-                    st.write(f"*{msg['content']}*")
+with col2:
+    # Voice recording controls
+    if not st.session_state.recording:
+        if st.button("🎤 Start Recording"):
+            st.session_state.recording = True
+            if record_audio():
+                st.info("Recording... Press 'Stop' when done.")
+                st.rerun()
+    else:
+        if st.button("⏹️ Stop Recording"):
+            st.session_state.recording = False
+            if stop_recording():
+                audio_file = save_audio_to_file()
+                if audio_file:
+                    with st.spinner("Transcribing..."):
+                        transcription = transcribe_audio(audio_file)
+                        if transcription:
+                            st.success("Transcription complete!")
+                            
+                            # Process the transcription with GPT
+                            with st.spinner("Processing your request..."):
+                                response = process_with_gpt(transcription)
+                            
+                            # Speak the response in a background thread
+                            threading.Thread(
+                                target=speak_text, 
+                                args=(
+                                    response, 
+                                    st.session_state.use_female_voice, 
+                                    st.session_state.voice_rate, 
+                                    st.session_state.voice_volume
+                                ), 
+                                daemon=True
+                            ).start()
+                            
+                            # Don't rerun immediately to avoid interrupting the TTS
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("Failed to transcribe audio.")
+                else:
+                    st.error("Failed to save audio.")
 
-    with col2:
-        # Voice recording controls
-        if not st.session_state.recording:
-            if st.button("🎤 Start Recording"):
-                st.session_state.recording = True
-                if record_audio():
-                    st.info("Recording... Press 'Stop' when done.")
-                    st.rerun()
-        else:
-            if st.button("⏹️ Stop Recording"):
-                st.session_state.recording = False
-                if stop_recording():
-                    audio_file = save_audio_to_file()
-                    if audio_file:
-                        with st.spinner("Transcribing..."):
-                            transcription = transcribe_audio(audio_file)
-                            if transcription:
-                                st.success("Transcription complete!")
-                                
-                                # Process the transcription with GPT
-                                with st.spinner("Processing your request..."):
-                                    response = process_with_gpt(transcription)
-                                
-                                # Speak the response in a background thread
-                                threading.Thread(
-                                    target=speak_text, 
-                                    args=(
-                                        response, 
-                                        st.session_state.use_female_voice, 
-                                        st.session_state.voice_rate, 
-                                        st.session_state.voice_volume
-                                    ), 
-                                    daemon=True
-                                ).start()
-                                
-                                # Don't rerun immediately to avoid interrupting the TTS
-                                time.sleep(0.5)
-                                st.rerun()
-                            else:
-                                st.error("Failed to transcribe audio.")
-                    else:
-                        st.error("Failed to save audio.")
-
-        # Display calendar events if there are any
-        if st.session_state.calendar_events:
-            st.subheader("Calendar Events")
-            st.write(f"*{len(st.session_state.calendar_events)} event(s) found*")
+    # Display calendar events if there are any
+    if st.session_state.calendar_events:
+        st.subheader("Calendar Events")
+        st.write(f"*{len(st.session_state.calendar_events)} event(s) found*")
+        
+        for event in st.session_state.calendar_events:
+            start_time = datetime.fromisoformat(event["start_time"])
             
-            for event in st.session_state.calendar_events:
-                start_time = datetime.fromisoformat(event["start_time"])
+            # Create an expandable card for each event
+            with st.expander(f"📅 {event['title']} - {start_time.strftime('%Y-%m-%d %H:%M')}"):
+                st.write(f"**Start:** {start_time.strftime('%Y-%m-%d %H:%M')}")
+                st.write(f"**Duration:** {event['duration_minutes']} minutes")
                 
-                # Create an expandable card for each event
-                with st.expander(f"📅 {event['title']} - {start_time.strftime('%Y-%m-%d %H:%M')}"):
-                    st.write(f"**Start:** {start_time.strftime('%Y-%m-%d %H:%M')}")
-                    st.write(f"**Duration:** {event['duration_minutes']} minutes")
-                    
-                    if event.get('location'):
-                        st.write(f"**Location:** {event['location']}")
-                    
-                    if event.get('meeting_link'):
-                        st.markdown(f"**Meeting Link:** [Click to join]({event['meeting_link']})")
+                if event.get('location'):
+                    st.write(f"**Location:** {event['location']}")
+                
+                if event.get('meeting_link'):
+                    st.markdown(f"**Meeting Link:** [Click to join]({event['meeting_link']})")
 
-        # Display drafted emails if there are any
-        if st.session_state.draft_emails:
-            st.subheader("Email Drafts")
-            st.write(f"*{len(st.session_state.draft_emails)} email draft(s) found*")
+    # Display drafted emails if there are any
+    if st.session_state.draft_emails:
+        st.subheader("Email Drafts")
+        st.write(f"*{len(st.session_state.draft_emails)} email draft(s) found*")
+        
+        for email in st.session_state.draft_emails:
+            created_at = datetime.fromisoformat(email["created_at"])
             
-            for email in st.session_state.draft_emails:
-                created_at = datetime.fromisoformat(email["created_at"])
+            # Create an expandable card for each email
+            with st.expander(f"✉️ To: {email['to']} - Subject: {email['subject']}"):
+                st.write(f"**Created:** {created_at.strftime('%Y-%m-%d %H:%M')}")
+                st.write(f"**To:** {email['to']}")
+                st.write(f"**Subject:** {email['subject']}")
+                st.text_area("Body", email['body'], height=150, key=f"email_{email['id']}", disabled=True)
+                st.write(f"**Email ID:** {email['id']}")
                 
-                # Create an expandable card for each email
-                with st.expander(f"✉️ To: {email['to']} - Subject: {email['subject']}"):
-                    st.write(f"**Created:** {created_at.strftime('%Y-%m-%d %H:%M')}")
-                    st.write(f"**To:** {email['to']}")
-                    st.write(f"**Subject:** {email['subject']}")
-                    st.text_area("Body", email['body'], height=150, key=f"email_{email['id']}", disabled=True)
-                    st.write(f"**Email ID:** {email['id']}")
-                    
-                    # Add a copy button for the email body
-                    if st.button("Copy Email Content", key=f"copy_{email['id']}"):
-                        # Create a string with the full email content
-                        full_email = f"To: {email['to']}\nSubject: {email['subject']}\n\n{email['body']}"
-                        st.code(full_email)
-                        st.success("Email content copied to clipboard! You can now paste it into your email client.")
+                # Add a copy button for the email body
+                if st.button("Copy Email Content", key=f"copy_{email['id']}"):
+                    # Create a string with the full email content
+                    full_email = f"To: {email['to']}\nSubject: {email['subject']}\n\n{email['body']}"
+                    st.code(full_email)
+                    st.success("Email content copied to clipboard! You can now paste it into your email client.")
 
 # Text input as an alternative to voice
-st.markdown("### Type your command")
-st.markdown("*Use this text input to interact with the assistant, especially when voice recording is unavailable*")
-user_input = st.text_input("", placeholder="Type your question or command here (e.g., 'What's the weather in New York?')", key="text_command_input")
+user_input = st.text_input("Or type your command:", "")
 if user_input:
     with st.spinner("Processing your request..."):
         response = process_with_gpt(user_input)

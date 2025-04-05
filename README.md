@@ -7,6 +7,11 @@ A powerful voice-controlled personal assistant built with Python that can proces
 ![Demo GIF](./assistant_demo.gif)
 
 
+## Try it at : https://ai-vocal-assistant-yd562yr8kafaajcja6wzcx.streamlit.app/
+
+
+( No audio input available :(    )
+
 ## Features
 
 - **Voice Recognition**: Records audio using sounddevice and transcribes with OpenAI's Whisper API
