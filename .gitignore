@@ -1,0 +1,50 @@
+.qodo
+
+# Environment variables
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+VOCAL_ASSISTANT/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Logs
+*.log
+
+# Backup files
+backup_*.json
+
+# Temporary files
+temp/
+*.wav
+*.mp3
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Streamlit specific
+.streamlit/secrets.toml
+
+# Misc
+token.pickle
+
+# API Keys and sensitive data
+.env.local

@@ -1,0 +1,24 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="voice-assistant",
+    version="1.0.0",
+    packages=find_packages(),
+    include_package_data=True,
+    install_requires=[
+        "streamlit==1.29.0",
+        "openai==1.3.0",
+        "sounddevice==0.4.6",
+        "scipy==1.11.3",
+        "python-dotenv==1.0.0",
+        "numpy",
+        "requests==2.31.0",
+        "python-dateutil==2.8.2",
+        "pyttsx3==2.90",
+        "schedule==1.2.0",
+        "fastapi==0.103.1",
+        "uvicorn==0.23.2",
+        "pydantic==2.4.2",
+        "httpx==0.28.0",
+    ],
+) 
