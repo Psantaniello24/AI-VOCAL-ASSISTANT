@@ -38,7 +38,7 @@ A powerful voice-controlled personal assistant built with Python that can proces
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/voice-assistant.git
+   git clone https://github.com/Psantaniello24/AI-VOCAL-ASSISTANT.git
    cd voice-assistant
    ```
 
